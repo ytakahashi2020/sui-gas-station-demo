@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const rpcPayload = {
       jsonrpc: "2.0",
       method: "gas_sponsorTransactionBlock",
-      params: [txKind, sender, "Sponsored"],
+      params: [txKind, sender],
       id: 1,
     };
 
