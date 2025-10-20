@@ -7,7 +7,7 @@ import {
   useSuiClient,
 } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const currentAccount = useCurrentAccount();
@@ -16,6 +16,42 @@ export default function Home() {
   const [txDigest, setTxDigest] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  const [balance, setBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Function to fetch SUI balance
+  const fetchBalance = async () => {
+    if (!currentAccount) {
+      setBalance(null);
+      return;
+    }
+
+    setBalanceLoading(true);
+    try {
+      const balanceData = await suiClient.getBalance({
+        owner: currentAccount.address,
+        coinType: "0x2::sui::SUI",
+      });
+
+      // Convert from MIST to SUI (1 SUI = 10^9 MIST)
+      const suiBalance = (
+        Number(balanceData.totalBalance) /
+        1_000_000_000
+      ).toFixed(4);
+      setBalance(suiBalance);
+    } catch (err) {
+      console.error("Error fetching balance:", err);
+      setBalance("Error");
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  // Fetch balance when account changes
+  useEffect(() => {
+    fetchBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAccount]);
 
   const handleExecuteTransaction = async () => {
     if (!currentAccount) {
@@ -92,6 +128,12 @@ export default function Home() {
       });
 
       setTxDigest(exec.digest);
+
+      // Refresh balance after successful transaction
+      // Wait a bit for the transaction to be processed
+      setTimeout(() => {
+        fetchBalance();
+      }, 2000);
     } catch (err: any) {
       console.error("Error executing transaction:", err);
       setError(err.message || "Failed to execute transaction");
@@ -109,9 +151,27 @@ export default function Home() {
           <ConnectButton />
 
           {currentAccount && (
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Connected: {currentAccount.address.slice(0, 6)}...
-              {currentAccount.address.slice(-4)}
+            <div className="flex flex-col gap-2 items-center">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Connected: {currentAccount.address.slice(0, 6)}...
+                {currentAccount.address.slice(-4)}
+              </div>
+              <div className="text-sm font-medium">
+                {balanceLoading ? (
+                  <span className="text-gray-500">Loading balance...</span>
+                ) : balance !== null ? (
+                  <span
+                    className={
+                      Number(balance) === 0
+                        ? "text-red-600 dark:text-red-400 font-bold"
+                        : "text-green-600 dark:text-green-400"
+                    }
+                  >
+                    Balance: {balance} SUI
+                    {Number(balance) === 0 && " (Gas Station will sponsor!)"}
+                  </span>
+                ) : null}
+              </div>
             </div>
           )}
         </div>
