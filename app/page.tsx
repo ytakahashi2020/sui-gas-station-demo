@@ -82,7 +82,7 @@ export default function Home() {
 
       // 3) Sign transaction with connected wallet
       const signedTx = await signTransaction({
-        transaction: Transaction.from(sponsorship.txBytes),
+        transaction: Transaction.from(sponsorship.txBytes) as any,
       });
 
       // 4) Execute transaction (sponsor signature + sender signature)
