@@ -41,19 +41,37 @@ export default function Home() {
         client: suiClient,
         onlyTransactionKind: true,
       });
-      const txKindB64 = Buffer.from(txKindBytes).toString("base64");
+
+      // Convert to base64 (browser-compatible way)
+      const txKindB64 = btoa(
+        String.fromCharCode(...new Uint8Array(txKindBytes))
+      );
+
+      console.log("Transaction kind built:", {
+        bytes: txKindBytes.length,
+        base64: txKindB64.slice(0, 50) + "...",
+      });
 
       // 2) Get sponsorship from API route (server-side to avoid CORS)
+      const requestBody = {
+        txKind: txKindB64,
+        sender: currentAccount.address,
+      };
+
+      console.log("Calling /api/sponsor with:", {
+        sender: requestBody.sender,
+        txKindLength: requestBody.txKind.length,
+      });
+
       const sponsorResponse = await fetch("/api/sponsor", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          txKind: txKindB64,
-          sender: currentAccount.address,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log("Sponsor response status:", sponsorResponse.status);
 
       if (!sponsorResponse.ok) {
         const errorData = await sponsorResponse.json();

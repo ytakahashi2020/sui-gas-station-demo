@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { txKind, sender } = await request.json();
+    console.log("API route called - Headers:", {
+      contentType: request.headers.get("content-type"),
+      contentLength: request.headers.get("content-length"),
+    });
+
+    const body = await request.text();
+    console.log("Raw body:", body.slice(0, 200));
+
+    const { txKind, sender } = JSON.parse(body);
 
     console.log("Received request:", {
       txKind: txKind.slice(0, 50) + "...",
