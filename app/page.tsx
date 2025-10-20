@@ -38,7 +38,7 @@ export default function Home() {
 
       // Build transaction kind
       const txKindBytes = await tx.build({
-        client: suiClient,
+        client: suiClient as any,
         onlyTransactionKind: true,
       });
 
