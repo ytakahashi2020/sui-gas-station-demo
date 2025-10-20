@@ -6,7 +6,7 @@ import {
   useSignTransaction,
   useSuiClient,
 } from "@mysten/dapp-kit";
-import { GasStationClient, createSuiClient } from "@shinami/clients/sui";
+import { GasStationClient } from "@shinami/clients/sui";
 import { Transaction } from "@mysten/sui/transactions";
 import { useState } from "react";
 
@@ -31,9 +31,8 @@ export default function Home() {
     setTxDigest("");
 
     try {
-      // Initialize clients
-      const node = createSuiClient(ACCESS_KEY); // Node Service
-      const gas = new GasStationClient(ACCESS_KEY); // Gas Station
+      // Initialize Gas Station client only
+      const gas = new GasStationClient(ACCESS_KEY);
 
       // 1) Create transaction (clock access)
       const tx = new Transaction();
@@ -43,8 +42,9 @@ export default function Home() {
         arguments: [tx.object("0x6")],
       });
 
+      // Use the suiClient from dapp-kit instead of creating a new one
       const txKindBytes = await tx.build({
-        client: node,
+        client: suiClient,
         onlyTransactionKind: true,
       });
       const txKindB64 = Buffer.from(txKindBytes).toString("base64");
@@ -61,7 +61,7 @@ export default function Home() {
       });
 
       // 4) Execute transaction (sponsor signature + sender signature)
-      const exec = await node.executeTransactionBlock({
+      const exec = await suiClient.executeTransactionBlock({
         transactionBlock: sponsorship.txBytes,
         signature: [signedTx.signature, sponsorship.signature],
       });
