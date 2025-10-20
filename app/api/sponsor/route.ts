@@ -1,14 +1,13 @@
-import { GasStationClient } from "@shinami/clients/sui";
 import { NextRequest, NextResponse } from "next/server";
-
-// Force Node.js runtime
-export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
     const { txKind, sender } = await request.json();
 
-    console.log("Received request:", { txKind: txKind.slice(0, 50), sender });
+    console.log("Received request:", {
+      txKind: txKind.slice(0, 50) + "...",
+      sender
+    });
 
     if (!txKind || !sender) {
       return NextResponse.json(
@@ -27,24 +26,61 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Creating GasStationClient...");
-    const gas = new GasStationClient(ACCESS_KEY);
+    // Extract region from ACCESS_KEY (e.g., "us1_sui_testnet_xxx")
+    const region = ACCESS_KEY.split("_")[0];
+    const apiUrl = `https://api.${region}.shinami.com/gas/v1`;
 
-    console.log("Sponsoring transaction...");
-    const sponsorship = await gas.sponsorTransaction({
-      txKind,
-      sender,
+    console.log("Calling Shinami Gas Station API:", apiUrl);
+
+    // Call Shinami Gas Station API directly using JSON-RPC
+    const rpcPayload = {
+      jsonrpc: "2.0",
+      method: "gas_sponsorTransactionBlock",
+      params: [txKind, sender, "Sponsored"],
+      id: 1,
+    };
+
+    console.log("RPC payload:", JSON.stringify(rpcPayload, null, 2));
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": ACCESS_KEY,
+      },
+      body: JSON.stringify(rpcPayload),
     });
 
-    console.log("Sponsorship successful:", sponsorship);
-    return NextResponse.json(sponsorship);
+    console.log("Response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Shinami API error response:", errorText);
+      throw new Error(`Shinami API error: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Response data:", JSON.stringify(data, null, 2));
+
+    if (data.error) {
+      console.error("Shinami RPC error:", data.error);
+      throw new Error(data.error.message || JSON.stringify(data.error));
+    }
+
+    if (!data.result) {
+      console.error("No result in response:", data);
+      throw new Error("No result from Shinami API");
+    }
+
+    console.log("Sponsorship successful");
+    return NextResponse.json(data.result);
   } catch (error: any) {
     console.error("Error sponsoring transaction:", error);
     console.error("Error stack:", error.stack);
     return NextResponse.json(
       {
         error: error.message || "Failed to sponsor transaction",
-        details: error.stack,
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 }
     );
