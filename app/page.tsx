@@ -6,7 +6,6 @@ import {
   useSignTransaction,
   useSuiClient,
 } from "@mysten/dapp-kit";
-import { GasStationClient } from "@shinami/clients/sui";
 import { Transaction } from "@mysten/sui/transactions";
 import { useState } from "react";
 
@@ -17,8 +16,6 @@ export default function Home() {
   const [txDigest, setTxDigest] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
-
-  const ACCESS_KEY = process.env.NEXT_PUBLIC_SHINAMI_ACCESS_KEY!;
 
   const handleExecuteTransaction = async () => {
     if (!currentAccount) {
@@ -31,9 +28,6 @@ export default function Home() {
     setTxDigest("");
 
     try {
-      // Initialize Gas Station client only
-      const gas = new GasStationClient(ACCESS_KEY);
-
       // 1) Create transaction (clock access)
       const tx = new Transaction();
       tx.moveCall({
@@ -42,18 +36,31 @@ export default function Home() {
         arguments: [tx.object("0x6")],
       });
 
-      // Use the suiClient from dapp-kit instead of creating a new one
+      // Build transaction kind
       const txKindBytes = await tx.build({
         client: suiClient,
         onlyTransactionKind: true,
       });
       const txKindB64 = Buffer.from(txKindBytes).toString("base64");
 
-      // 2) Get sponsorship (Auto-budget)
-      const sponsorship = await gas.sponsorTransaction({
-        txKind: txKindB64,
-        sender: currentAccount.address,
+      // 2) Get sponsorship from API route (server-side to avoid CORS)
+      const sponsorResponse = await fetch("/api/sponsor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          txKind: txKindB64,
+          sender: currentAccount.address,
+        }),
       });
+
+      if (!sponsorResponse.ok) {
+        const errorData = await sponsorResponse.json();
+        throw new Error(errorData.error || "Failed to get sponsorship");
+      }
+
+      const sponsorship = await sponsorResponse.json();
 
       // 3) Sign transaction with connected wallet
       const signedTx = await signTransaction({
